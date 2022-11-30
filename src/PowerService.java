@@ -13,9 +13,9 @@ public class PowerService {
 
         try {
             Statement statement = connect.createStatement();
-            statement.addBatch(Db.createPostalCodesTable());
-            statement.addBatch(Db.createDistributionHubsTable());
-            statement.addBatch(Db.createPostalCodeDistributionHubsTable());
+            statement.addBatch(db.createPostalCodesTable());
+            statement.addBatch(db.createDistributionHubsTable());
+            statement.addBatch(db.createPostalCodeDistributionHubsTable());
             statement.executeBatch();
             statement.close();
             connect.close();
@@ -54,7 +54,6 @@ public class PowerService {
         Connection connect = db.getConnection();
 
         try {
-            connect.setAutoCommit(false);
             Statement statement = connect.createStatement();
             String getPostalCodesQuery = db.getPostalCodesQuery();
             ResultSet resultSet = statement.executeQuery(getPostalCodesQuery);
@@ -67,14 +66,12 @@ public class PowerService {
                     throw new IllegalArgumentException("Invalid postal code:"+postalCode);
                 }
             }
-            statement.addBatch(addDistributionHubQuery);
+            statement.execute(addDistributionHubQuery);
             String removeEntriesOfHubFromPostalCodeDistributionHubQuery = db.removeEntriesOfHubFromPostalCodeDistributionHubQuery(hubIdentifier);
             statement.addBatch(removeEntriesOfHubFromPostalCodeDistributionHubQuery);
             statement.addBatch(addPostalCodeDistributionHubQuery);
             statement.executeBatch();
-            connect.commit();
             statement.close();
-            connect.setAutoCommit(true);
             connect.close();
             return true;
         } catch (SQLException e) {
@@ -83,7 +80,29 @@ public class PowerService {
     }
 
     public void hubDamage ( String hubIdentifier, float repairEstimate ) {
+        if (hubIdentifier==null || hubIdentifier.trim()=="" || repairEstimate<=0) {
+            throw new IllegalArgumentException();
+        }
 
+        String setHubDamageQuery = db.setHubDamageQuery(hubIdentifier, repairEstimate);
+        Connection connect = db.getConnection();
+
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.getDistributionHubsQuery());
+            Set curHubs = new HashSet<>();
+            while (resultSet.next()) {
+                curHubs.add(resultSet.getString(db.HUB_ID));
+            }
+            if (curHubs.contains(hubIdentifier)==false) {
+                throw new IllegalArgumentException();
+            }
+            statement.execute(setHubDamageQuery);
+            statement.close();
+            connect.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     public void hubRepair( String hubIdentifier, String employeeId, float repairTime, boolean inService ) {
@@ -91,23 +110,21 @@ public class PowerService {
     }
 
     public int peopleOutOfService () {
-    /*
-    with t1 as
-        select *
-            from POSTAL_CODE_TABLE join POSTAL_CODES_DISTRIBUTION_HUBS_TABLE using(POSTAL_CODE)
-            join DISTRIBUTION_HUB_TABLE using (hubID)
-    with t2 as
-        select postal_code, count(*) as total_hubs, population
-            from t1
-    with t3 as
-        select postal_code, count(*) as hubs_out_of_service
-            from t1 where in_service=false
-    select
-       sum((population*hubs_out_of_service))/total_hubs)
-       from t2 join t3 using(postal_code)
-     */
+        Connection connect = db.getConnection();
+        float peopleOutOfService = 0;
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.peopleOutOfServiceQuery());
+            while (resultSet.next()) {
+                peopleOutOfService = Float.parseFloat(resultSet.getString(db.PEOPLE_OUT_OF_SERVICE));
+            }
 
-        return 0;
+            statement.close();
+            connect.close();
+            return (int)Math.ceil(peopleOutOfService);
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     /*
