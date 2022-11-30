@@ -13,12 +13,15 @@ public class Db {
     public static final String POPULATION = "POPULATION";
     public static final String AREA = "AREA";
     public static final String DISTRIBUTION_HUBS_TABLE = "DISTRIBUTION_HUBS_TABLE";
+    public static final String HUB_REPAIR_TABLE = "HUB_REPAIR_TABLE";
     public static final String HUB_ID = "HUB_ID";
     public static final String LOCATION_X = "LOCATION_X";
     public static final String LOCATION_Y = "LOCATION_Y";
     public static final String IN_SERVICE = "IN_SERVICE";
     public static final String REPAIR_ESTIMATE = "REPAIR_ESTIMATE";
     public static final String POSTAL_CODES_DISTRIBUTION_HUBS_TABLE = "POSTAL_CODES_DISTRIBUTION_HUBS_TABLE";
+    public static final String EMPLOYEE_ID = "EMPLOYEE_ID";
+    public static final String REPAIR_TIME = "REPAIR_TIME";
     public static final String PEOPLE_OUT_OF_SERVICE = "PEOPLE_OUT_OF_SERVICE";
     public static final String ID = "ID";
 
@@ -58,8 +61,8 @@ public class Db {
         return "CREATE TABLE IF NOT EXISTS " + POSTAL_CODES_TABLE +
                 "(" +
                 POSTAL_CODE + " VARCHAR(6) PRIMARY KEY," +
-                POPULATION + " INT," +
-                AREA + " INT" +
+                POPULATION + " INT NOT NULL," +
+                AREA + " INT NOT NULL" +
                 ");";
     }
 
@@ -67,10 +70,10 @@ public class Db {
         return "CREATE TABLE IF NOT EXISTS " + DISTRIBUTION_HUBS_TABLE +
                 "(" +
                 HUB_ID + " VARCHAR(256) PRIMARY KEY," +
-                LOCATION_X + " INT," +
-                LOCATION_Y + " INT," +
-                IN_SERVICE + " BOOL DEFAULT TRUE," +
-                REPAIR_ESTIMATE + " FLOAT" +
+                LOCATION_X + " INT NOT NULL," +
+                LOCATION_Y + " INT NOT NULL," +
+                IN_SERVICE + " BOOL NOT NULL DEFAULT TRUE," +
+                REPAIR_ESTIMATE + " FLOAT NOT NULL DEFAULT 0" +
                 ");";
     }
 
@@ -86,6 +89,18 @@ public class Db {
                 ");";
     }
 
+    public String createHubRepairTable() {
+        return "CREATE TABLE IF NOT EXISTS " + HUB_REPAIR_TABLE +
+                "(" +
+                ID + " INT PRIMARY KEY AUTO_INCREMENT, " +
+                HUB_ID + " VARCHAR(256) NOT NULL, " +
+                EMPLOYEE_ID + " VARCHAR(256) NOT NULL, " +
+                REPAIR_TIME  + " FLOAT NOT NULL," +
+                IN_SERVICE + " BOOL NOT NULL, " +
+                "FOREIGN KEY(" + HUB_ID + ") REFERENCES " + DISTRIBUTION_HUBS_TABLE + "(" + HUB_ID + ")" +
+                ");";
+    }
+
     public String addPostalCodeQuery(String postalCode, int population, int area) {
         StringBuilder query = new StringBuilder();
         query.append("INSERT INTO ");
@@ -93,7 +108,7 @@ public class Db {
         query.append(" VALUES (");
         query.append("\"").append(postalCode).append("\", ");
         query.append(population).append(", ").append(area).append(")");
-        query.append(" ON DUPLICATE KEY  UPDATE ");
+        query.append(" ON DUPLICATE KEY UPDATE ");
         query.append(Db.POPULATION).append("=").append(population).append(", ");
         query.append(Db.AREA).append("=").append(area).append(";");
         return query.toString();
@@ -160,6 +175,31 @@ public class Db {
         query.append(" SET ");
         query.append(IN_SERVICE).append(" = FALSE, ");
         query.append(REPAIR_ESTIMATE).append(" = ").append(repairEstimate);
+        query.append(" WHERE ").append(HUB_ID).append(" = ");
+        query.append("\"").append(hubID).append("\"").append(";");
+        return query.toString();
+    }
+
+    public String addHubRepairQuery(String hubIdentifier, String employeeId, float repairTime, boolean inService) {
+        StringBuilder query = new StringBuilder();
+        query.append("INSERT INTO ");
+        query.append(Db.HUB_REPAIR_TABLE);
+        query.append("(").append(HUB_ID).append(", ");
+        query.append(EMPLOYEE_ID).append(", ");
+        query.append(REPAIR_TIME).append(", ");
+        query.append(IN_SERVICE).append(")");
+        query.append(" VALUES (");
+        query.append("\"").append(hubIdentifier).append("\", ");
+        query.append(employeeId).append(", ").append(repairTime).append(", ").append(inService).append(");");
+        return query.toString();
+    }
+
+    public String setHubInServiceQuery(String hubID, boolean inService) {
+        StringBuilder query = new StringBuilder();
+        query.append("UPDATE ");
+        query.append(DISTRIBUTION_HUBS_TABLE);
+        query.append(" SET ");
+        query.append(IN_SERVICE).append("=").append(inService);
         query.append(" WHERE ").append(HUB_ID).append(" = ");
         query.append("\"").append(hubID).append("\"").append(";");
         return query.toString();

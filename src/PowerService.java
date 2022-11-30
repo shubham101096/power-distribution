@@ -16,6 +16,7 @@ public class PowerService {
             statement.addBatch(db.createPostalCodesTable());
             statement.addBatch(db.createDistributionHubsTable());
             statement.addBatch(db.createPostalCodeDistributionHubsTable());
+            statement.addBatch(db.createHubRepairTable());
             statement.executeBatch();
             statement.close();
             connect.close();
@@ -106,7 +107,34 @@ public class PowerService {
     }
 
     public void hubRepair( String hubIdentifier, String employeeId, float repairTime, boolean inService ) {
-
+        if (hubIdentifier==null || hubIdentifier.trim()=="" || employeeId==null || employeeId.trim()=="") {
+            throw new IllegalArgumentException();
+        }
+        if (repairTime<=0) {
+            throw new IllegalArgumentException();
+        }
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.getDistributionHubsQuery());
+            Set curHubs = new HashSet<>();
+            while (resultSet.next()) {
+                curHubs.add(resultSet.getString(db.HUB_ID));
+            }
+            if (curHubs.contains(hubIdentifier)==false) {
+                throw new IllegalArgumentException();
+            }
+            connect.setAutoCommit(false);
+            statement.addBatch(db.addHubRepairQuery(hubIdentifier, employeeId, repairTime, inService));
+            statement.addBatch(db.setHubInServiceQuery(hubIdentifier, inService));
+            statement.executeBatch();
+            connect.commit();
+            connect.setAutoCommit(true);
+            statement.close();
+            connect.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     public int peopleOutOfService () {
@@ -115,10 +143,14 @@ public class PowerService {
         try {
             Statement statement = connect.createStatement();
             ResultSet resultSet = statement.executeQuery(db.peopleOutOfServiceQuery());
+            String result = "";
             while (resultSet.next()) {
-                peopleOutOfService = Float.parseFloat(resultSet.getString(db.PEOPLE_OUT_OF_SERVICE));
+                result = resultSet.getString(db.PEOPLE_OUT_OF_SERVICE);
             }
-
+            if (result==null) {
+                return 0;
+            }
+            peopleOutOfService = Float.parseFloat(result);
             statement.close();
             connect.close();
             return (int)Math.ceil(peopleOutOfService);
