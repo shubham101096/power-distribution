@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -126,7 +127,9 @@ public class PowerService {
             }
             connect.setAutoCommit(false);
             statement.addBatch(db.addHubRepairQuery(hubIdentifier, employeeId, repairTime, inService));
-            statement.addBatch(db.setHubInServiceQuery(hubIdentifier, inService));
+            if (inService) {
+                statement.addBatch(db.setHubInServiceQuery(hubIdentifier));
+            }
             statement.executeBatch();
             connect.commit();
             connect.setAutoCommit(true);
@@ -143,14 +146,9 @@ public class PowerService {
         try {
             Statement statement = connect.createStatement();
             ResultSet resultSet = statement.executeQuery(db.peopleOutOfServiceQuery());
-            String result = "";
             while (resultSet.next()) {
-                result = resultSet.getString(db.PEOPLE_OUT_OF_SERVICE);
+                peopleOutOfService = Float.parseFloat(resultSet.getString(db.PEOPLE_OUT_OF_SERVICE));
             }
-            if (result==null) {
-                return 0;
-            }
-            peopleOutOfService = Float.parseFloat(result);
             statement.close();
             connect.close();
             return (int)Math.ceil(peopleOutOfService);
@@ -159,18 +157,30 @@ public class PowerService {
         }
     }
 
-    /*
-    with t1 as
-        select postal_code, sum(repair_estimate) as total_repairs
-            from POSTAL_CODE_TABLE join POSTAL_CODES_DISTRIBUTION_HUBS_TABLE using(POSTAL_CODE)
-            join DISTRIBUTION_HUB_TABLE using (hubID)
-            group by postal_code
-            order by total_repairs DESC
-            limit limit
-
-     */
     public List<DamagedPostalCodes> mostDamagedPostalCodes (int limit ) {
-        return null;
+        if (limit<=0) {
+            throw new IllegalArgumentException();
+        }
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.mostDamagedPostalCodesQuery(limit));
+            List<DamagedPostalCodes> damagedPostalCodes = new ArrayList<>();
+            DamagedPostalCodes damagedPostalCode;
+            String postalCode = "";
+            Float totalRepairs;
+            while (resultSet.next()) {
+                postalCode = resultSet.getString(db.POSTAL_CODE);
+                totalRepairs = Float.parseFloat(resultSet.getString(db.TOTAL_REPAIRS));
+                damagedPostalCode = new DamagedPostalCodes(postalCode, totalRepairs);
+                damagedPostalCodes.add(damagedPostalCode);
+            }
+            statement.close();
+            connect.close();
+            return damagedPostalCodes;
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
     }
 
     public List<HubImpact> fixOrder ( int limit ) {

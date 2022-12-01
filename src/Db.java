@@ -23,6 +23,7 @@ public class Db {
     public static final String EMPLOYEE_ID = "EMPLOYEE_ID";
     public static final String REPAIR_TIME = "REPAIR_TIME";
     public static final String PEOPLE_OUT_OF_SERVICE = "PEOPLE_OUT_OF_SERVICE";
+    public static final String TOTAL_REPAIRS = "TOTAL_REPAIRS";
     public static final String ID = "ID";
 
     public static Db getInstance() {
@@ -194,14 +195,15 @@ public class Db {
         return query.toString();
     }
 
-    public String setHubInServiceQuery(String hubID, boolean inService) {
+    public String setHubInServiceQuery(String hubID) {
         StringBuilder query = new StringBuilder();
-        query.append("UPDATE ");
-        query.append(DISTRIBUTION_HUBS_TABLE);
-        query.append(" SET ");
-        query.append(IN_SERVICE).append("=").append(inService);
-        query.append(" WHERE ").append(HUB_ID).append(" = ");
-        query.append("\"").append(hubID).append("\"").append(";");
+        query.append("UPDATE ")
+                .append(DISTRIBUTION_HUBS_TABLE)
+                .append(" SET ")
+                .append(IN_SERVICE).append("=TRUE, ")
+                .append(REPAIR_ESTIMATE).append("=0 ")
+                .append(" WHERE ").append(HUB_ID).append(" = ")
+                .append("\"").append(hubID).append("\"").append(";");
         return query.toString();
     }
 
@@ -216,9 +218,23 @@ public class Db {
                 .append(" T3 AS (SELECT ").append(POSTAL_CODE).append(", COUNT(*) AS HUBS_OUT_OF_SERVICE ")
                 .append("FROM T1 WHERE ").append(IN_SERVICE).append("=FALSE ")
                 .append("GROUP BY ").append(POSTAL_CODE).append(") ")
-                .append("SELECT SUM((").append(POPULATION).append("*HUBS_OUT_OF_SERVICE)/TOTAL_HUBS)")
+                .append("SELECT COALESCE(SUM((").append(POPULATION).append("*HUBS_OUT_OF_SERVICE)/TOTAL_HUBS), 0)")
                 .append(" AS ").append(PEOPLE_OUT_OF_SERVICE)
                 .append(" FROM T2 JOIN T3 USING(").append(POSTAL_CODE).append(");");
+        return query.toString();
+    }
+
+    public String mostDamagedPostalCodesQuery(int limit) {
+        StringBuilder query = new StringBuilder();
+        query.append("SELECT ").append(POSTAL_CODE).append(", SUM(").append(REPAIR_ESTIMATE).append(") ")
+                .append("AS ").append(TOTAL_REPAIRS)
+                .append(" FROM ").append(POSTAL_CODES_TABLE).append(" JOIN ")
+                .append(POSTAL_CODES_DISTRIBUTION_HUBS_TABLE).append(" USING(").append(POSTAL_CODE).append(") ")
+                .append("JOIN ").append(DISTRIBUTION_HUBS_TABLE).append(" USING(").append(HUB_ID).append(") ")
+                .append("GROUP BY ").append(POSTAL_CODE)
+                .append(" HAVING ").append(TOTAL_REPAIRS).append(">0 ")
+                .append("ORDER BY ").append(REPAIR_ESTIMATE).append(" DESC ")
+                .append("LIMIT ").append(limit).append(";");
         return query.toString();
     }
 }
