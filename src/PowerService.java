@@ -184,7 +184,29 @@ public class PowerService {
     }
 
     public List<HubImpact> fixOrder ( int limit ) {
-        return null;
+        if (limit<=0) {
+            throw new IllegalArgumentException();
+        }
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.fixOrderQuery(limit));
+            List<HubImpact> hubImpacts = new ArrayList<>();
+            HubImpact hubImpact;
+            String hubID = "";
+            Float impact;
+            while (resultSet.next()) {
+                hubID = resultSet.getString(db.HUB_ID);
+                impact = Float.parseFloat(resultSet.getString(db.HUB_IMPACT));
+                hubImpact = new HubImpact(hubID, impact);
+                hubImpacts.add(hubImpact);
+            }
+            statement.close();
+            connect.close();
+            return hubImpacts;
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
     }
 
     public List<Integer> rateOfServiceRestoration ( float increment ) {

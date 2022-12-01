@@ -25,6 +25,7 @@ public class Db {
     public static final String PEOPLE_OUT_OF_SERVICE = "PEOPLE_OUT_OF_SERVICE";
     public static final String TOTAL_REPAIRS = "TOTAL_REPAIRS";
     public static final String ID = "ID";
+    public static final String HUB_IMPACT = "HUB_IMPACT";
 
     public static Db getInstance() {
         if (dbInstance == null) {
@@ -236,5 +237,21 @@ public class Db {
                 .append("ORDER BY ").append(REPAIR_ESTIMATE).append(" DESC ")
                 .append("LIMIT ").append(limit).append(";");
         return query.toString();
+    }
+
+    public String fixOrderQuery(int limit) {
+        return "WITH T1 AS" +
+                "(SELECT * "+
+                "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
+                "JOIN "+DISTRIBUTION_HUBS_TABLE+" USING("+HUB_ID+")), "+
+                "T2 AS "+
+                "(SELECT "+POSTAL_CODE+", "+POPULATION+"/COUNT(*) AS POPULATION_PER_HUB "+
+                "FROM T1 GROUP BY "+POSTAL_CODE+"), "+
+                "T3 AS "+
+                "(SELECT "+HUB_ID+", "+POSTAL_CODE+", "+REPAIR_ESTIMATE+
+                " FROM T1 WHERE "+IN_SERVICE+"=FALSE)"+
+                "SELECT "+HUB_ID+", SUM(POPULATION_PER_HUB)/REPAIR_ESTIMATE AS "+HUB_IMPACT+
+                " FROM T2 JOIN T3 USING("+POSTAL_CODE+") "+
+                "GROUP BY "+HUB_ID+";";
     }
 }
