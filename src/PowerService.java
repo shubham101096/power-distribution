@@ -210,6 +210,11 @@ public class PowerService {
     }
 
     public List<Integer> rateOfServiceRestoration ( float increment ) {
+        if (increment<=0) {
+            throw new IllegalArgumentException();
+        }
+
+
         return null;
     }
 
@@ -218,11 +223,43 @@ public class PowerService {
     }
 
     public List<String> underservedPostalByPopulation ( int limit ) {
-        return null;
+        if (limit<=0) {
+            throw new IllegalArgumentException();
+        }
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.underservedPostalByPopulationQuery(limit));
+            List<String> postalCodes = new ArrayList<>();
+            while (resultSet.next()) {
+                postalCodes.add(resultSet.getString(db.POSTAL_CODE));
+            }
+            statement.close();
+            connect.close();
+            return postalCodes;
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
     }
 
     public List<String> underservedPostalByArea ( int limit ) {
-        return null;
+        if (limit<=0) {
+            throw new IllegalArgumentException();
+        }
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.underservedPostalByAreaQuery(limit));
+            List<String> postalCodes = new ArrayList<>();
+            while (resultSet.next()) {
+                postalCodes.add(resultSet.getString(db.POSTAL_CODE));
+            }
+            statement.close();
+            connect.close();
+            return postalCodes;
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
     }
 
 }

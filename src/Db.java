@@ -240,7 +240,7 @@ public class Db {
     }
 
     public String fixOrderQuery(int limit) {
-        return "WITH T1 AS" +
+        return "WITH T1 AS " +
                 "(SELECT * "+
                 "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
                 "JOIN "+DISTRIBUTION_HUBS_TABLE+" USING("+HUB_ID+")), "+
@@ -253,5 +253,27 @@ public class Db {
                 "SELECT "+HUB_ID+", SUM(POPULATION_PER_HUB)/REPAIR_ESTIMATE AS "+HUB_IMPACT+
                 " FROM T2 JOIN T3 USING("+POSTAL_CODE+") "+
                 "GROUP BY "+HUB_ID+";";
+    }
+
+    public String underservedPostalByPopulationQuery(int limit) {
+        return "WITH T1 AS " +
+                "(SELECT * "+
+                "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
+                "JOIN "+DISTRIBUTION_HUBS_TABLE+" USING("+HUB_ID+")) "+
+                "SELECT "+POSTAL_CODE+"," + "COUNT(*)/"+POPULATION+" AS HUBS_PER_PERSON "+
+                "FROM T1 GROUP BY "+POSTAL_CODE+" "+
+                "ORDER BY HUBS_PER_PERSON "+
+                "LIMIT "+limit+";";
+    }
+
+    public String underservedPostalByAreaQuery(int limit) {
+        return "WITH T1 AS " +
+                "(SELECT * "+
+                "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
+                "JOIN "+DISTRIBUTION_HUBS_TABLE+" USING("+HUB_ID+")) "+
+                "SELECT "+POSTAL_CODE+"," + "COUNT(*)/"+AREA+" AS HUBS_PER_AREA "+
+                "FROM T1 GROUP BY "+POSTAL_CODE+" "+
+                "ORDER BY HUBS_PER_AREA "+
+                "LIMIT "+limit+";";
     }
 }
