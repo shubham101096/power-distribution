@@ -6,8 +6,7 @@ import java.util.Properties;
 import java.util.Set;
 
 public class Db {
-    
-    private static Db dbInstance;
+
     public static final String POSTAL_CODES_TABLE = "POSTAL_CODES_TABLE";
     public static final String POSTAL_CODE = "POSTAL_CODE";
     public static final String POPULATION = "POPULATION";
@@ -30,11 +29,8 @@ public class Db {
     public static final String HUBS_OUT_OF_SERVICE = "HUBS_OUT_OF_SERVICE";
     public static final String TOTAL_HUBS ="TOTAL_HUBS";
 
-    public static Db getInstance() {
-        if (dbInstance == null) {
-            dbInstance = new Db();
-        }
-        return dbInstance;
+    private Db() {
+
     }
 
     public static  String createPostalCodesTable() {
