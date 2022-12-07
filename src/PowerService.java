@@ -1,20 +1,18 @@
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.sql.*;
 import java.util.*;
 
 public class PowerService {
 
-    private Db db;
-
     public PowerService() {
-        db = Db.getInstance();
-        Connection connect = db.getConnection();
-
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            statement.addBatch(db.createPostalCodesTable());
-            statement.addBatch(db.createDistributionHubsTable());
-            statement.addBatch(db.createPostalCodeDistributionHubsTable());
-            statement.addBatch(db.createHubRepairTable());
+            statement.addBatch(Db.createPostalCodesTable());
+            statement.addBatch(Db.createDistributionHubsTable());
+            statement.addBatch(Db.createPostalCodeDistributionHubsTable());
+            statement.addBatch(Db.createHubRepairTable());
             statement.executeBatch();
             statement.close();
             connect.close();
@@ -29,8 +27,8 @@ public class PowerService {
             throw new IllegalArgumentException();
         }
 
-        String query = db.addPostalCodeQuery(postalCode, population, area);
-        Connection connect = db.getConnection();
+        String query = Db.addPostalCodeQuery(postalCode, population, area);
+        Connection connect = getDbConnection();
 
         try {
             Statement statement = connect.createStatement();
@@ -48,17 +46,17 @@ public class PowerService {
             throw new IllegalArgumentException();
         }
 
-        String addDistributionHubQuery = db.addDistributionHubQuery(hubIdentifier, location);
-        String addPostalCodeDistributionHubQuery = db.addPostalCodeDistributionHubQuery(hubIdentifier, servicedAreas);
-        Connection connect = db.getConnection();
+        String addDistributionHubQuery = Db.addDistributionHubQuery(hubIdentifier, location);
+        String addPostalCodeDistributionHubQuery = Db.addPostalCodeDistributionHubQuery(hubIdentifier, servicedAreas);
+        Connection connect = getDbConnection();
 
         try {
             Statement statement = connect.createStatement();
-            String getPostalCodesQuery = db.getPostalCodesQuery();
+            String getPostalCodesQuery = Db.getPostalCodesQuery();
             ResultSet resultSet = statement.executeQuery(getPostalCodesQuery);
             Set curPostalCodes = new HashSet<>();
             while (resultSet.next()) {
-                curPostalCodes.add(resultSet.getString(db.POSTAL_CODE));
+                curPostalCodes.add(resultSet.getString(Db.POSTAL_CODE));
             }
             for (String postalCode:servicedAreas) {
                 if (curPostalCodes.contains(postalCode)==false) {
@@ -66,7 +64,7 @@ public class PowerService {
                 }
             }
             statement.execute(addDistributionHubQuery);
-            String removeEntriesOfHubFromPostalCodeDistributionHubQuery = db.removeEntriesOfHubFromPostalCodeDistributionHubQuery(hubIdentifier);
+            String removeEntriesOfHubFromPostalCodeDistributionHubQuery = Db.removeEntriesOfHubFromPostalCodeDistributionHubQuery(hubIdentifier);
             statement.addBatch(removeEntriesOfHubFromPostalCodeDistributionHubQuery);
             statement.addBatch(addPostalCodeDistributionHubQuery);
             statement.executeBatch();
@@ -83,15 +81,15 @@ public class PowerService {
             throw new IllegalArgumentException();
         }
 
-        String setHubDamageQuery = db.setHubDamageQuery(hubIdentifier, repairEstimate);
-        Connection connect = db.getConnection();
+        String setHubDamageQuery = Db.setHubDamageQuery(hubIdentifier, repairEstimate);
+        Connection connect = getDbConnection();
 
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.getDistributionHubsQuery());
+            ResultSet resultSet = statement.executeQuery(Db.getDistributionHubsQuery());
             Set curHubs = new HashSet<>();
             while (resultSet.next()) {
-                curHubs.add(resultSet.getString(db.HUB_ID));
+                curHubs.add(resultSet.getString(Db.HUB_ID));
             }
             if (curHubs.contains(hubIdentifier)==false) {
                 throw new IllegalArgumentException();
@@ -111,21 +109,21 @@ public class PowerService {
         if (repairTime<=0) {
             throw new IllegalArgumentException();
         }
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.getDistributionHubsQuery());
+            ResultSet resultSet = statement.executeQuery(Db.getDistributionHubsQuery());
             Set curHubs = new HashSet<>();
             while (resultSet.next()) {
-                curHubs.add(resultSet.getString(db.HUB_ID));
+                curHubs.add(resultSet.getString(Db.HUB_ID));
             }
             if (curHubs.contains(hubIdentifier)==false) {
                 throw new IllegalArgumentException();
             }
             connect.setAutoCommit(false);
-            statement.addBatch(db.addHubRepairQuery(hubIdentifier, employeeId, repairTime, inService));
+            statement.addBatch(Db.addHubRepairQuery(hubIdentifier, employeeId, repairTime, inService));
             if (inService) {
-                statement.addBatch(db.setHubInServiceQuery(hubIdentifier));
+                statement.addBatch(Db.setHubInServiceQuery(hubIdentifier));
             }
             statement.executeBatch();
             connect.commit();
@@ -138,13 +136,13 @@ public class PowerService {
     }
 
     public int peopleOutOfService () {
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         float peopleOutOfService = 0;
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.peopleOutOfServiceQuery());
+            ResultSet resultSet = statement.executeQuery(Db.peopleOutOfServiceQuery());
             while (resultSet.next()) {
-                peopleOutOfService = Float.parseFloat(resultSet.getString(db.PEOPLE_OUT_OF_SERVICE));
+                peopleOutOfService = Float.parseFloat(resultSet.getString(Db.PEOPLE_OUT_OF_SERVICE));
             }
             statement.close();
             connect.close();
@@ -158,17 +156,17 @@ public class PowerService {
         if (limit<=0) {
             throw new IllegalArgumentException();
         }
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.mostDamagedPostalCodesQuery(limit));
+            ResultSet resultSet = statement.executeQuery(Db.mostDamagedPostalCodesQuery(limit));
             List<DamagedPostalCodes> damagedPostalCodes = new ArrayList<>();
             DamagedPostalCodes damagedPostalCode;
             String postalCode = "";
             Float totalRepairs;
             while (resultSet.next()) {
-                postalCode = resultSet.getString(db.POSTAL_CODE);
-                totalRepairs = Float.parseFloat(resultSet.getString(db.TOTAL_REPAIRS));
+                postalCode = resultSet.getString(Db.POSTAL_CODE);
+                totalRepairs = Float.parseFloat(resultSet.getString(Db.TOTAL_REPAIRS));
                 damagedPostalCode = new DamagedPostalCodes(postalCode, totalRepairs);
                 damagedPostalCodes.add(damagedPostalCode);
             }
@@ -241,13 +239,13 @@ public class PowerService {
         if (limit<=0) {
             throw new IllegalArgumentException();
         }
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.underservedPostalByPopulationQuery(limit));
+            ResultSet resultSet = statement.executeQuery(Db.underservedPostalByPopulationQuery(limit));
             List<String> postalCodes = new ArrayList<>();
             while (resultSet.next()) {
-                postalCodes.add(resultSet.getString(db.POSTAL_CODE));
+                postalCodes.add(resultSet.getString(Db.POSTAL_CODE));
             }
             statement.close();
             connect.close();
@@ -261,13 +259,13 @@ public class PowerService {
         if (limit<=0) {
             throw new IllegalArgumentException();
         }
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.underservedPostalByAreaQuery(limit));
+            ResultSet resultSet = statement.executeQuery(Db.underservedPostalByAreaQuery(limit));
             List<String> postalCodes = new ArrayList<>();
             while (resultSet.next()) {
-                postalCodes.add(resultSet.getString(db.POSTAL_CODE));
+                postalCodes.add(resultSet.getString(Db.POSTAL_CODE));
             }
             statement.close();
             connect.close();
@@ -278,17 +276,17 @@ public class PowerService {
     }
 
     private List<HubImpact> fixOrder () {
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.fixOrderQuery());
+            ResultSet resultSet = statement.executeQuery(Db.fixOrderQuery());
             List<HubImpact> hubImpacts = new ArrayList<>();
             HubImpact hubImpact;
             String hubID = "";
             Float impact;
             while (resultSet.next()) {
-                hubID = resultSet.getString(db.HUB_ID);
-                impact = Float.parseFloat(resultSet.getString(db.HUB_IMPACT));
+                hubID = resultSet.getString(Db.HUB_ID);
+                impact = Float.parseFloat(resultSet.getString(Db.HUB_IMPACT));
                 hubImpact = new HubImpact(hubID, impact);
                 hubImpacts.add(hubImpact);
             }
@@ -301,13 +299,13 @@ public class PowerService {
     }
 
     private int getTotalPopulation() {
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         int totalPopulation = 0;
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.totalPopulationQuery());
+            ResultSet resultSet = statement.executeQuery(Db.totalPopulationQuery());
             while (resultSet.next()) {
-                totalPopulation = Integer.parseInt(resultSet.getString(db.TOTAL_POPULATION));
+                totalPopulation = Integer.parseInt(resultSet.getString(Db.TOTAL_POPULATION));
             }
             statement.close();
             connect.close();
@@ -318,22 +316,47 @@ public class PowerService {
     }
 
     private Map<String, Float> getHubsRepairEstimates() {
-        Connection connect = db.getConnection();
+        Connection connect = getDbConnection();
         Map<String, Float> hubsRepairEstimatesMap = new HashMap<>();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.hubsRepairEstimatesQuery());
+            ResultSet resultSet = statement.executeQuery(Db.hubsRepairEstimatesQuery());
             String hubID = "";
             Float repairEstimate;
             while (resultSet.next()) {
-                hubID = resultSet.getString(db.HUB_ID);
-                repairEstimate = Float.parseFloat(resultSet.getString(db.REPAIR_ESTIMATE));
+                hubID = resultSet.getString(Db.HUB_ID);
+                repairEstimate = Float.parseFloat(resultSet.getString(Db.REPAIR_ESTIMATE));
                 hubsRepairEstimatesMap.put(hubID, repairEstimate);
             }
             statement.close();
             connect.close();
             return hubsRepairEstimatesMap;
         } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    private Connection getDbConnection() {
+        Properties identity = new Properties();
+        String username = "";
+        String password = "";
+        String path = "";
+
+        try {
+            InputStream stream = new FileInputStream(Constants.PROPERTY_FILENAME);
+            identity.load(stream);
+            username = identity.getProperty(Constants.USERNAME);
+            password = identity.getProperty(Constants.PASSWORD);
+            path = identity.getProperty(Constants.DATABASE_PATH);
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+
+        try {
+            Class.forName(Constants.JDBC);
+            Connection connect = DriverManager.getConnection(path, username, password );
+            return connect;
+        } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
     }

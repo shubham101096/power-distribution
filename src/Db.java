@@ -6,7 +6,7 @@ import java.util.Properties;
 import java.util.Set;
 
 public class Db {
-
+    
     private static Db dbInstance;
     public static final String POSTAL_CODES_TABLE = "POSTAL_CODES_TABLE";
     public static final String POSTAL_CODE = "POSTAL_CODE";
@@ -27,6 +27,8 @@ public class Db {
     public static final String ID = "ID";
     public static final String HUB_IMPACT = "HUB_IMPACT";
     public static final String TOTAL_POPULATION = "TOTAL_POPULATION";
+    public static final String HUBS_OUT_OF_SERVICE = "HUBS_OUT_OF_SERVICE";
+    public static final String TOTAL_HUBS ="TOTAL_HUBS";
 
     public static Db getInstance() {
         if (dbInstance == null) {
@@ -35,32 +37,7 @@ public class Db {
         return dbInstance;
     }
 
-    public Connection getConnection() {
-        Properties identity = new Properties();
-        String username = "";
-        String password = "";
-        String path = "";
-
-        try {
-            InputStream stream = new FileInputStream(Constants.PROPERTY_FILENAME);
-            identity.load(stream);
-            username = identity.getProperty(Constants.USERNAME);
-            password = identity.getProperty(Constants.PASSWORD);
-            path = identity.getProperty(Constants.DATABASE_PATH);
-        } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
-        }
-
-        try {
-            Class.forName(Constants.JDBC);
-            Connection connect = connect = DriverManager.getConnection(path, username, password );
-            return connect;
-        } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
-        }
-    }
-
-    public String createPostalCodesTable() {
+    public static  String createPostalCodesTable() {
         return "CREATE TABLE IF NOT EXISTS " + POSTAL_CODES_TABLE +
                 "(" +
                 POSTAL_CODE + " VARCHAR(6) PRIMARY KEY," +
@@ -69,7 +46,7 @@ public class Db {
                 ");";
     }
 
-    public String createDistributionHubsTable() {
+    public static  String createDistributionHubsTable() {
         return "CREATE TABLE IF NOT EXISTS " + DISTRIBUTION_HUBS_TABLE +
                 "(" +
                 HUB_ID + " VARCHAR(256) PRIMARY KEY," +
@@ -80,7 +57,7 @@ public class Db {
                 ");";
     }
 
-    public String createPostalCodeDistributionHubsTable() {
+    public static  String createPostalCodeDistributionHubsTable() {
         return "CREATE TABLE IF NOT EXISTS " + POSTAL_CODES_DISTRIBUTION_HUBS_TABLE +
                 "(" +
                 ID + " INT PRIMARY KEY AUTO_INCREMENT," +
@@ -92,7 +69,7 @@ public class Db {
                 ");";
     }
 
-    public String createHubRepairTable() {
+    public static  String createHubRepairTable() {
         return "CREATE TABLE IF NOT EXISTS " + HUB_REPAIR_TABLE +
                 "(" +
                 ID + " INT PRIMARY KEY AUTO_INCREMENT, " +
@@ -104,42 +81,25 @@ public class Db {
                 ");";
     }
 
-    public String addPostalCodeQuery(String postalCode, int population, int area) {
-        StringBuilder query = new StringBuilder();
-        query.append("INSERT INTO ");
-        query.append(Db.POSTAL_CODES_TABLE);
-        query.append(" VALUES (");
-        query.append("\"").append(postalCode).append("\", ");
-        query.append(population).append(", ").append(area).append(")");
-        query.append(" ON DUPLICATE KEY UPDATE ");
-        query.append(Db.POPULATION).append("=").append(population).append(", ");
-        query.append(Db.AREA).append("=").append(area).append(";");
-        return query.toString();
+    public static  String addPostalCodeQuery(String postalCode, int population, int area) {
+        return "INSERT INTO "+POSTAL_CODES_TABLE+"("+POSTAL_CODE+", "+POPULATION+", "+AREA+") VALUES\n" +
+                "(\""+postalCode+"\", "+population+", "+area+")\n" +
+                "ON DUPLICATE KEY UPDATE \n" +
+                POPULATION+"="+population+",\n" +
+                AREA+"="+area+";";
     }
 
-    public String addDistributionHubQuery(String hubIdentifier, Point location) {
-        StringBuilder query = new StringBuilder();
-        query.append("INSERT INTO ");
-        query.append(Db.DISTRIBUTION_HUBS_TABLE);
-        query.append("(").append(HUB_ID).append(", ");
-        query.append(LOCATION_X).append(", ");
-        query.append(LOCATION_Y).append(")");
-        query.append(" VALUES (");
-        query.append("\"").append(hubIdentifier).append("\", ");
-        query.append(location.getX()).append(", ").append(location.getY()).append(")");
-        query.append(" ON DUPLICATE KEY  UPDATE ");
-        query.append(Db.LOCATION_X).append("=").append(location.getX()).append(", ");
-        query.append(Db.LOCATION_Y).append("=").append(location.getY()).append(";");
-        return query.toString();
+    public static  String addDistributionHubQuery(String hubIdentifier, Point location) {
+        return "INSERT INTO "+DISTRIBUTION_HUBS_TABLE+"("+HUB_ID+", "+LOCATION_X+", "+LOCATION_Y+") VALUES\n" +
+                "(\""+hubIdentifier+"\", "+location.getX()+", "+location.getY()+")\n" +
+                "ON DUPLICATE KEY UPDATE \n" +
+                LOCATION_X+"="+location.getX()+",\n" +
+                LOCATION_Y+"="+location.getY()+";";
     }
 
-    public String addPostalCodeDistributionHubQuery(String hubIdentifier, Set<String> servicedAreas) {
+    public static  String addPostalCodeDistributionHubQuery(String hubIdentifier, Set<String> servicedAreas) {
         StringBuilder query = new StringBuilder();
-        query.append("INSERT INTO ");
-        query.append(Db.POSTAL_CODES_DISTRIBUTION_HUBS_TABLE);
-        query.append(" (").append(Db.POSTAL_CODE).append(", ");
-        query.append(Db.HUB_ID).append(")");
-        query.append(" VALUES ");
+        query.append("INSERT INTO "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+"("+POSTAL_CODE+", "+HUB_ID+") VALUES ");
         for (String postalCode : servicedAreas) {
             query.append("(\"").append(postalCode).append("\", ");
             query.append("\"").append(hubIdentifier).append("\"), ");
@@ -148,99 +108,65 @@ public class Db {
         return query.toString();
     }
 
-    public String getPostalCodesQuery() {
-        StringBuilder query = new StringBuilder();
-        query.append("SELECT * FROM ");
-        query.append(POSTAL_CODES_TABLE).append(";");
-        return query.toString();
+    public static  String getPostalCodesQuery() {
+        return "SELECT * from "+POSTAL_CODES_TABLE+";";
     }
 
-    public String getDistributionHubsQuery() {
-        StringBuilder query = new StringBuilder();
-        query.append("SELECT * FROM ");
-        query.append(DISTRIBUTION_HUBS_TABLE).append(";");
-        return query.toString();
+    public static  String getDistributionHubsQuery() {
+        return "SELECT * from "+DISTRIBUTION_HUBS_TABLE+";";
     }
 
-    public String removeEntriesOfHubFromPostalCodeDistributionHubQuery(String hubID) {
-        StringBuilder query = new StringBuilder();
-        query.append("DELETE FROM ");
-        query.append(POSTAL_CODES_DISTRIBUTION_HUBS_TABLE);
-        query.append(" WHERE ").append(HUB_ID).append(" = ");
-        query.append("\"").append(hubID).append("\"").append(";");
-        return query.toString();
+    public static  String removeEntriesOfHubFromPostalCodeDistributionHubQuery(String hubID) {
+        return "DELETE FROM "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+
+                "  WHERE "+HUB_ID+"=\""+hubID+"\";";
     }
 
-    public String setHubDamageQuery(String hubID, float repairEstimate) {
-        StringBuilder query = new StringBuilder();
-        query.append("UPDATE ");
-        query.append(DISTRIBUTION_HUBS_TABLE);
-        query.append(" SET ");
-        query.append(IN_SERVICE).append(" = FALSE, ");
-        query.append(REPAIR_ESTIMATE).append(" = ").append(repairEstimate);
-        query.append(" WHERE ").append(HUB_ID).append(" = ");
-        query.append("\"").append(hubID).append("\"").append(";");
-        return query.toString();
+    public static  String setHubDamageQuery(String hubID, float repairEstimate) {
+        return "UPDATE DISTRIBUTION_HUBS_TABLE\n" +
+                "\tSET "+IN_SERVICE+"=FALSE, REPAIR_ESTIMATE="+repairEstimate+"\n" +
+                " WHERE HUB_ID=\""+hubID+"\";";
     }
 
-    public String addHubRepairQuery(String hubIdentifier, String employeeId, float repairTime, boolean inService) {
-        StringBuilder query = new StringBuilder();
-        query.append("INSERT INTO ");
-        query.append(Db.HUB_REPAIR_TABLE);
-        query.append("(").append(HUB_ID).append(", ");
-        query.append(EMPLOYEE_ID).append(", ");
-        query.append(REPAIR_TIME).append(", ");
-        query.append(IN_SERVICE).append(")");
-        query.append(" VALUES (");
-        query.append("\"").append(hubIdentifier).append("\", ");
-        query.append(employeeId).append(", ").append(repairTime).append(", ").append(inService).append(");");
-        return query.toString();
+    public static  String addHubRepairQuery(String hubIdentifier, String employeeId, float repairTime, boolean inService) {
+        return "INSERT INTO "+HUB_REPAIR_TABLE+"("+HUB_ID+", "+EMPLOYEE_ID+", "+REPAIR_TIME+", "+IN_SERVICE+")\n" +
+                "VALUES (\""+hubIdentifier+"\", \""+employeeId+"\", "+repairTime+", "+inService+");";
     }
 
-    public String setHubInServiceQuery(String hubID) {
-        StringBuilder query = new StringBuilder();
-        query.append("UPDATE ")
-                .append(DISTRIBUTION_HUBS_TABLE)
-                .append(" SET ")
-                .append(IN_SERVICE).append("=TRUE, ")
-                .append(REPAIR_ESTIMATE).append("=0 ")
-                .append(" WHERE ").append(HUB_ID).append(" = ")
-                .append("\"").append(hubID).append("\"").append(";");
-        return query.toString();
+    public static  String setHubInServiceQuery(String hubID) {
+        return "UPDATE +"+DISTRIBUTION_HUBS_TABLE+"\n" +
+                "\tSET +"+IN_SERVICE+"=TRUE, "+REPAIR_ESTIMATE+"=0\n" +
+                "    WHERE HUB_ID=\"h1\";";
     }
 
-    public String peopleOutOfServiceQuery() {
-        StringBuilder query = new StringBuilder();
-        query.append("WITH T1 AS ")
-                .append("(SELECT * FROM ").append(POSTAL_CODES_TABLE).append(" JOIN ")
-                .append(POSTAL_CODES_DISTRIBUTION_HUBS_TABLE).append(" USING(").append(POSTAL_CODE).append(") ")
-                .append(" JOIN ").append(DISTRIBUTION_HUBS_TABLE).append(" USING(").append(HUB_ID).append(")), ")
-                .append("T2 AS (SELECT ").append(POSTAL_CODE).append(", COUNT(*) AS TOTAL_HUBS, ").append(POPULATION)
-                .append(" FROM T1 ").append("GROUP BY ").append(POPULATION).append("), ")
-                .append(" T3 AS (SELECT ").append(POSTAL_CODE).append(", COUNT(*) AS HUBS_OUT_OF_SERVICE ")
-                .append("FROM T1 WHERE ").append(IN_SERVICE).append("=FALSE ")
-                .append("GROUP BY ").append(POSTAL_CODE).append(") ")
-                .append("SELECT COALESCE(SUM((").append(POPULATION).append("*HUBS_OUT_OF_SERVICE)/TOTAL_HUBS), 0)")
-                .append(" AS ").append(PEOPLE_OUT_OF_SERVICE)
-                .append(" FROM T2 JOIN T3 USING(").append(POSTAL_CODE).append(");");
-        return query.toString();
+    public static  String peopleOutOfServiceQuery() {
+        return "WITH T1 AS\n" +
+                "\t(SELECT *\n" +
+                "\t\tFROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+")\n" +
+                "\t\tJOIN "+DISTRIBUTION_HUBS_TABLE+" USING ("+HUB_ID+")),\n" +
+                "T2 AS\n" +
+                "\t(SELECT "+POSTAL_CODE+", COUNT(*) as TOTAL_HUBS, "+POPULATION+"\n" +
+                "\t\tFROM T1\n" +
+                "        GROUP BY "+POSTAL_CODE+"),\n" +
+                "T3 AS\n" +
+                "\t(SELECT "+POSTAL_CODE+", COUNT(*) as "+HUBS_OUT_OF_SERVICE+"\n" +
+                "\t\tFROM T1 WHERE "+IN_SERVICE+"=FALSE\n" +
+                "        GROUP BY "+POSTAL_CODE+")\n" +
+                "SELECT COALESCE(SUM((POPULATION*"+HUBS_OUT_OF_SERVICE+")/"+TOTAL_HUBS+"), 0) AS "+PEOPLE_OUT_OF_SERVICE+"\n" +
+                "   FROM T2 JOIN T3 USING("+POSTAL_CODE+");";
     }
 
-    public String mostDamagedPostalCodesQuery(int limit) {
-        StringBuilder query = new StringBuilder();
-        query.append("SELECT ").append(POSTAL_CODE).append(", SUM(").append(REPAIR_ESTIMATE).append(") ")
-                .append("AS ").append(TOTAL_REPAIRS)
-                .append(" FROM ").append(POSTAL_CODES_TABLE).append(" JOIN ")
-                .append(POSTAL_CODES_DISTRIBUTION_HUBS_TABLE).append(" USING(").append(POSTAL_CODE).append(") ")
-                .append("JOIN ").append(DISTRIBUTION_HUBS_TABLE).append(" USING(").append(HUB_ID).append(") ")
-                .append("GROUP BY ").append(POSTAL_CODE)
-                .append(" HAVING ").append(TOTAL_REPAIRS).append(">0 ")
-                .append("ORDER BY ").append(REPAIR_ESTIMATE).append(" DESC ")
-                .append("LIMIT ").append(limit).append(";");
-        return query.toString();
+    public static  String mostDamagedPostalCodesQuery(int limit) {
+        String q = "SELECT "+POSTAL_CODE+", SUM("+REPAIR_ESTIMATE+") AS "+TOTAL_REPAIRS+"\n" +
+                "\tFROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+")\n" +
+                "\tJOIN "+DISTRIBUTION_HUBS_TABLE+" USING ("+HUB_ID+")\n" +
+                "\tGROUP BY "+POSTAL_CODE+"\n" +
+                "    HAVING "+TOTAL_REPAIRS+">0\n" +
+                "\tORDER BY "+TOTAL_REPAIRS+" DESC\n" +
+                "\tLIMIT "+limit+";";
+        return q;
     }
 
-    public String fixOrderQuery() {
+    public static  String fixOrderQuery() {
         return "WITH T1 AS " +
                 "(SELECT * "+
                 "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
@@ -257,15 +183,15 @@ public class Db {
                 " ORDER BY "+HUB_IMPACT+" DESC;";
     }
 
-    public String totalPopulationQuery() {
+    public static  String totalPopulationQuery() {
         return "SELECT SUM("+POPULATION+") AS "+TOTAL_POPULATION+" FROM "+POSTAL_CODES_TABLE+";";
     }
 
-    public String hubsRepairEstimatesQuery() {
+    public static  String hubsRepairEstimatesQuery() {
         return "SELECT "+HUB_ID+", "+REPAIR_ESTIMATE+" FROM "+DISTRIBUTION_HUBS_TABLE+";";
     }
 
-    public String underservedPostalByPopulationQuery(int limit) {
+    public static  String underservedPostalByPopulationQuery(int limit) {
         return "WITH T1 AS " +
                 "(SELECT * "+
                 "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
@@ -276,7 +202,7 @@ public class Db {
                 "LIMIT "+limit+";";
     }
 
-    public String underservedPostalByAreaQuery(int limit) {
+    public static  String underservedPostalByAreaQuery(int limit) {
         return "WITH T1 AS " +
                 "(SELECT * "+
                 "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
