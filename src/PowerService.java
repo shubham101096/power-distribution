@@ -1,8 +1,5 @@
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class PowerService {
 
@@ -187,26 +184,8 @@ public class PowerService {
         if (limit<=0) {
             throw new IllegalArgumentException();
         }
-        Connection connect = db.getConnection();
-        try {
-            Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(db.fixOrderQuery(limit));
-            List<HubImpact> hubImpacts = new ArrayList<>();
-            HubImpact hubImpact;
-            String hubID = "";
-            Float impact;
-            while (resultSet.next()) {
-                hubID = resultSet.getString(db.HUB_ID);
-                impact = Float.parseFloat(resultSet.getString(db.HUB_IMPACT));
-                hubImpact = new HubImpact(hubID, impact);
-                hubImpacts.add(hubImpact);
-            }
-            statement.close();
-            connect.close();
-            return hubImpacts;
-        } catch (SQLException e) {
-            throw  new RuntimeException(e.getMessage());
-        }
+        List<HubImpact> hubImpacts = fixOrder();
+        return hubImpacts.subList(0, Math.min(limit, hubImpacts.size()));
     }
 
     public List<Integer> rateOfServiceRestoration ( float increment ) {
@@ -214,8 +193,44 @@ public class PowerService {
             throw new IllegalArgumentException();
         }
 
+        List<HubImpact> fixOrder = fixOrder();
+        Map<String, Float> hubsRepairEstimatesMap = getHubsRepairEstimates();
 
-        return null;
+        int peopleOutOfService = peopleOutOfService();
+        int totalPopulation = getTotalPopulation();
+
+        List<Integer> result = new ArrayList<>();
+        result.add(0);
+        float curPopulationRestored = (float) (totalPopulation-peopleOutOfService)/totalPopulation;
+        float curIncrementSum = 0;
+        float repairTime = 0;
+        int hubIndex = 0;
+
+        int x = (int)(curPopulationRestored/increment);
+        curIncrementSum = x*increment;
+        for (int i = 0; i < x; i++) {
+            result.add((int)Math.ceil(repairTime));
+        }
+
+        String hubID = "";
+        Float hubImpact;
+        Float hubRepairEstimate;
+
+        for (int i = 0; i < fixOrder.size(); i++) {
+            hubID = fixOrder.get(i).getHubID();
+            hubImpact = fixOrder.get(i).getImpact();
+            hubRepairEstimate = hubsRepairEstimatesMap.get(hubID);
+            curPopulationRestored += (hubImpact*hubRepairEstimate)/totalPopulation;
+            repairTime += hubRepairEstimate;
+            while ((curIncrementSum+increment)<=curPopulationRestored) {
+                result.add((int)Math.ceil(repairTime));
+                curIncrementSum += increment;
+            }
+        }
+        if (result.size()<(Math.ceil(1/increment)+1)) {
+            result.add(result.get(result.size()-1));
+        }
+        return  result;
     }
 
     public List<HubImpact> repairPlan ( String startHub, int maxDistance, float maxTime ) {
@@ -262,4 +277,64 @@ public class PowerService {
         }
     }
 
+    private List<HubImpact> fixOrder () {
+        Connection connect = db.getConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.fixOrderQuery());
+            List<HubImpact> hubImpacts = new ArrayList<>();
+            HubImpact hubImpact;
+            String hubID = "";
+            Float impact;
+            while (resultSet.next()) {
+                hubID = resultSet.getString(db.HUB_ID);
+                impact = Float.parseFloat(resultSet.getString(db.HUB_IMPACT));
+                hubImpact = new HubImpact(hubID, impact);
+                hubImpacts.add(hubImpact);
+            }
+            statement.close();
+            connect.close();
+            return hubImpacts;
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
+    }
+
+    private int getTotalPopulation() {
+        Connection connect = db.getConnection();
+        int totalPopulation = 0;
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.totalPopulationQuery());
+            while (resultSet.next()) {
+                totalPopulation = Integer.parseInt(resultSet.getString(db.TOTAL_POPULATION));
+            }
+            statement.close();
+            connect.close();
+            return totalPopulation;
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    private Map<String, Float> getHubsRepairEstimates() {
+        Connection connect = db.getConnection();
+        Map<String, Float> hubsRepairEstimatesMap = new HashMap<>();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(db.hubsRepairEstimatesQuery());
+            String hubID = "";
+            Float repairEstimate;
+            while (resultSet.next()) {
+                hubID = resultSet.getString(db.HUB_ID);
+                repairEstimate = Float.parseFloat(resultSet.getString(db.REPAIR_ESTIMATE));
+                hubsRepairEstimatesMap.put(hubID, repairEstimate);
+            }
+            statement.close();
+            connect.close();
+            return hubsRepairEstimatesMap;
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
 }

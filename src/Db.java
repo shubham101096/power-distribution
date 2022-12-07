@@ -26,6 +26,7 @@ public class Db {
     public static final String TOTAL_REPAIRS = "TOTAL_REPAIRS";
     public static final String ID = "ID";
     public static final String HUB_IMPACT = "HUB_IMPACT";
+    public static final String TOTAL_POPULATION = "TOTAL_POPULATION";
 
     public static Db getInstance() {
         if (dbInstance == null) {
@@ -239,7 +240,7 @@ public class Db {
         return query.toString();
     }
 
-    public String fixOrderQuery(int limit) {
+    public String fixOrderQuery() {
         return "WITH T1 AS " +
                 "(SELECT * "+
                 "FROM "+POSTAL_CODES_TABLE+" JOIN "+POSTAL_CODES_DISTRIBUTION_HUBS_TABLE+" USING("+POSTAL_CODE+") "+
@@ -250,9 +251,18 @@ public class Db {
                 "T3 AS "+
                 "(SELECT "+HUB_ID+", "+POSTAL_CODE+", "+REPAIR_ESTIMATE+
                 " FROM T1 WHERE "+IN_SERVICE+"=FALSE)"+
-                "SELECT "+HUB_ID+", SUM(POPULATION_PER_HUB)/REPAIR_ESTIMATE AS "+HUB_IMPACT+
+                "SELECT "+HUB_ID+", "+REPAIR_ESTIMATE+", SUM(POPULATION_PER_HUB)/"+REPAIR_ESTIMATE+" AS "+HUB_IMPACT+
                 " FROM T2 JOIN T3 USING("+POSTAL_CODE+") "+
-                "GROUP BY "+HUB_ID+";";
+                "GROUP BY "+HUB_ID+
+                " ORDER BY "+HUB_IMPACT+" DESC;";
+    }
+
+    public String totalPopulationQuery() {
+        return "SELECT SUM("+POPULATION+") AS "+TOTAL_POPULATION+" FROM "+POSTAL_CODES_TABLE+";";
+    }
+
+    public String hubsRepairEstimatesQuery() {
+        return "SELECT "+HUB_ID+", "+REPAIR_ESTIMATE+" FROM "+DISTRIBUTION_HUBS_TABLE+";";
     }
 
     public String underservedPostalByPopulationQuery(int limit) {
