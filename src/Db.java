@@ -1,8 +1,3 @@
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.util.Properties;
 import java.util.Set;
 
 public class Db {
@@ -185,6 +180,30 @@ public class Db {
 
     public static  String hubsRepairEstimatesQuery() {
         return "SELECT "+HUB_ID+", "+REPAIR_ESTIMATE+" FROM "+DISTRIBUTION_HUBS_TABLE+";";
+    }
+
+    public static String getHubInfoQuery(String hubID) {
+        return "SELECT * FROM "+DISTRIBUTION_HUBS_TABLE+"\n" +
+                "WHERE "+HUB_ID+"='"+hubID+"';";
+    }
+
+    public static String getFaultyHubsWithinMaxDistTimeQuery(HubInfo startHubInfo, int maxDist) {
+        return "SELECT * FROM "+DISTRIBUTION_HUBS_TABLE+"\n" +
+                "WHERE "+HUB_ID+"!='"+startHubInfo.getHubID()+"' AND "+IN_SERVICE+"=FALSE AND\n" +
+                "ABS("+LOCATION_X+"-"+startHubInfo.getLocationX()+") + ABS("+LOCATION_Y+"-"+startHubInfo.getLocationY()+") <= "+maxDist+";";
+    }
+
+    public static String getFaultyHubsWithinRectangleQuery(HubInfo startHubInfo, HubInfo endHubInfo, float maxTime) {
+        int minLocationX = Math.min(startHubInfo.getLocationX(), endHubInfo.getLocationX());
+        int minLocationY = Math.min(startHubInfo.getLocationY(), endHubInfo.getLocationY());
+        int maxLocationX = Math.max(startHubInfo.getLocationX(), endHubInfo.getLocationX());
+        int maxLocationY = Math.max(startHubInfo.getLocationY(), endHubInfo.getLocationY());
+
+        return "SELECT * FROM "+DISTRIBUTION_HUBS_TABLE+"\n" +
+                "WHERE "+HUB_ID+"NOT IN ('"+startHubInfo.getHubID()+", '"+endHubInfo.getHubID()+"') AND "+IN_SERVICE+"=FALSE AND\n" +
+                REPAIR_ESTIMATE+"<="+maxTime+" AND\n"+
+                "("+LOCATION_X+" BETWEEN "+minLocationX+" AND "+maxLocationX+")\n" +
+                "AND ("+LOCATION_Y+" BETWEEN "+minLocationY+" AND "+maxLocationY+");";
     }
 
     public static  String underservedPostalByPopulationQuery(int limit) {

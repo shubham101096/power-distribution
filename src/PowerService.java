@@ -7,6 +7,7 @@ public class PowerService {
 
     public PowerService() {
         Connection connect = getDbConnection();
+
         try {
             Statement statement = connect.createStatement();
             statement.addBatch(Db.createPostalCodesTable());
@@ -23,7 +24,7 @@ public class PowerService {
 
 
     public boolean addPostalCode (String postalCode, int population, int area ) {
-        if (postalCode==null || postalCode.trim()=="" || population<=0 || area<=0) {
+        if (postalCode==null || postalCode.trim()=="" || postalCode.length()>6 || population<=0 || area<=0) {
             throw new IllegalArgumentException();
         }
 
@@ -81,19 +82,15 @@ public class PowerService {
             throw new IllegalArgumentException();
         }
 
+        if (doesHubExistInDb(hubIdentifier)==false) {
+            throw new IllegalArgumentException();
+        }
+
         String setHubDamageQuery = Db.setHubDamageQuery(hubIdentifier, repairEstimate);
         Connection connect = getDbConnection();
 
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(Db.getDistributionHubsQuery());
-            Set curHubs = new HashSet<>();
-            while (resultSet.next()) {
-                curHubs.add(resultSet.getString(Db.HUB_ID));
-            }
-            if (curHubs.contains(hubIdentifier)==false) {
-                throw new IllegalArgumentException();
-            }
             statement.execute(setHubDamageQuery);
             statement.close();
             connect.close();
@@ -109,17 +106,13 @@ public class PowerService {
         if (repairTime<=0) {
             throw new IllegalArgumentException();
         }
+        if (doesHubExistInDb(hubIdentifier)==false) {
+            throw new IllegalArgumentException();
+        }
+
         Connection connect = getDbConnection();
         try {
             Statement statement = connect.createStatement();
-            ResultSet resultSet = statement.executeQuery(Db.getDistributionHubsQuery());
-            Set curHubs = new HashSet<>();
-            while (resultSet.next()) {
-                curHubs.add(resultSet.getString(Db.HUB_ID));
-            }
-            if (curHubs.contains(hubIdentifier)==false) {
-                throw new IllegalArgumentException();
-            }
             connect.setAutoCommit(false);
             statement.addBatch(Db.addHubRepairQuery(hubIdentifier, employeeId, repairTime, inService));
             if (inService) {
@@ -232,7 +225,61 @@ public class PowerService {
     }
 
     public List<HubImpact> repairPlan ( String startHub, int maxDistance, float maxTime ) {
-        return null;
+        if (startHub==null || startHub.trim()=="" || maxDistance<=0 || maxTime<=0) {
+            throw new IllegalArgumentException();
+        }
+        if (doesHubExistInDb(startHub)==false) {
+            throw new IllegalArgumentException();
+        }
+
+        HubInfo startHubInfo = getHubInfo(startHub);
+        String startHubId = startHubInfo.getHubID();
+        if (startHubInfo.isInService()) {
+            throw new IllegalArgumentException();
+        }
+
+        List<HubImpact> fixOrder = fixOrder();
+
+        List<HubInfo> faultyHubsWithinMaxDistList = new ArrayList<>(getFaultyHubsWithinMaxDist(startHubInfo, maxDistance));
+        Set<String> faultyHubsWithinMaxDistSet = new HashSet<>();
+        for (HubInfo hub : faultyHubsWithinMaxDistList) {
+            faultyHubsWithinMaxDistSet.add(hub.getHubID());
+        }
+
+        String endHubId = "";
+        HubInfo endHubInfo = new HubInfo();
+        for (HubImpact hubImpact : fixOrder) {
+            if (faultyHubsWithinMaxDistSet.contains(hubImpact.getHubID())) {
+                endHubId = hubImpact.getHubID();
+                break;
+            }
+        }
+
+        for (HubInfo hubInfo : faultyHubsWithinMaxDistList) {
+            if (hubInfo.getHubID().equals(endHubId)) {
+                endHubInfo = new HubInfo(hubInfo);
+            }
+        }
+
+        List<HubInfo> faultyHubsInsideRectangleList = new ArrayList<>();
+        faultyHubsInsideRectangleList.add(startHubInfo);
+        faultyHubsInsideRectangleList.addAll(getFaultyHubsInsideRectangle(startHubInfo, endHubInfo, faultyHubsWithinMaxDistList, maxTime));
+
+        Set<String> faultyHubsInsideRectangleSet = new HashSet<>();
+        for (HubInfo hub : faultyHubsInsideRectangleList) {
+            faultyHubsInsideRectangleSet.add(hub.getHubID());
+        }
+
+        Map<String, HubImpact> hubImpactMap = new HashMap<>();
+
+        for (HubImpact hubImpact : fixOrder) {
+            if (faultyHubsInsideRectangleSet.contains(hubImpact.getHubID())) {
+                hubImpactMap.put(hubImpact.getHubID(), hubImpact);
+            }
+        }
+
+        RepairPlan repairPlan = new RepairPlan(startHubId, endHubId, faultyHubsInsideRectangleList, hubImpactMap);
+        return repairPlan.getRepairOrder();
     }
 
     public List<String> underservedPostalByPopulation ( int limit ) {
@@ -359,5 +406,132 @@ public class PowerService {
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    private boolean doesHubExistInDb(String hubID) {
+        Connection connect = getDbConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(Db.getDistributionHubsQuery());
+            Set curHubs = new HashSet<>();
+            while (resultSet.next()) {
+                curHubs.add(resultSet.getString(Db.HUB_ID));
+            }
+            statement.close();
+            connect.close();
+            if (curHubs.contains(hubID)==false) {
+                return false;
+            }
+            return true;
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    private HubInfo getHubInfo(String hubID) {
+        Connection connect = getDbConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(Db.getHubInfoQuery(hubID));
+            int locationX = 0;
+            int locationY = 0;
+            boolean inService = true;
+            float repairEstimate = 0;
+
+            while (resultSet.next()) {
+                locationX = Integer.parseInt(resultSet.getString(Db.LOCATION_X));
+                locationY = Integer.parseInt(resultSet.getString(Db.LOCATION_Y));
+                inService = Boolean.parseBoolean(resultSet.getString(Db.IN_SERVICE));
+                repairEstimate = Float.parseFloat(resultSet.getString(Db.REPAIR_ESTIMATE));
+            }
+
+            statement.close();
+            connect.close();
+            return new HubInfo(hubID, locationX, locationY, inService, repairEstimate);
+
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
+    }
+
+    private List<HubInfo> getFaultyHubsWithinMaxDist(HubInfo startHub, int maxDist) {
+        Connection connect = getDbConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(Db.getFaultyHubsWithinMaxDistTimeQuery(startHub, maxDist));
+            String hubID;
+            int locationX = 0;
+            int locationY = 0;
+            boolean inService = true;
+            float repairEstimate = 0;
+            List faultyHubs = new ArrayList<>();
+
+            while (resultSet.next()) {
+                hubID = resultSet.getString(Db.HUB_ID);
+                locationX = Integer.parseInt(resultSet.getString(Db.LOCATION_X));
+                locationY = Integer.parseInt(resultSet.getString(Db.LOCATION_Y));
+                inService = Boolean.parseBoolean(resultSet.getString(Db.IN_SERVICE));
+                repairEstimate = Float.parseFloat(resultSet.getString(Db.REPAIR_ESTIMATE));
+                faultyHubs.add(new HubInfo(hubID, locationX, locationY, inService, repairEstimate));
+            }
+
+            statement.close();
+            connect.close();
+            return faultyHubs;
+
+        } catch (SQLException e) {
+            throw  new RuntimeException(e.getMessage());
+        }
+    }
+
+    private List<HubInfo> getFaultyHubsInsideRectangle(HubInfo startHubInfo, HubInfo endHubInfo, List<HubInfo> faultyHubsList, float maxTime) {
+
+        List<HubInfo> faultyHubsInsideRectangleList =  new ArrayList<>();
+
+        int minLocationX = Math.min(startHubInfo.getLocationX(), endHubInfo.getLocationX());
+        int minLocationY = Math.min(startHubInfo.getLocationY(), endHubInfo.getLocationY());
+        int maxLocationX = Math.max(startHubInfo.getLocationX(), endHubInfo.getLocationX());
+        int maxLocationY = Math.max(startHubInfo.getLocationY(), endHubInfo.getLocationY());
+
+        for (HubInfo hubInfo : faultyHubsList) {
+            if (hubInfo.getHubID().equals(endHubInfo.getHubID())) {
+                faultyHubsInsideRectangleList.add(hubInfo);
+            }
+            else if (hubInfo.getLocationX()>=minLocationX && hubInfo.getLocationX()<=maxLocationX &&
+                hubInfo.getLocationY()>=minLocationY && hubInfo.getLocationY()<=maxLocationY &&
+                hubInfo.getRepairEstimate()<=maxTime) {
+                faultyHubsInsideRectangleList.add(hubInfo);
+            }
+        }
+
+        return faultyHubsInsideRectangleList;
+
+//        Connection connect = getDbConnection();
+//        try {
+//            Statement statement = connect.createStatement();
+//            ResultSet resultSet = statement.executeQuery(Db.getFaultyHubsWithinRectangleQuery(startHub, endHub, maxTime));
+//            String hubID;
+//            int locationX = 0;
+//            int locationY = 0;
+//            boolean inService = true;
+//            float repairEstimate = 0;
+//            List faultyHubs = new ArrayList<>();
+//
+//            while (resultSet.next()) {
+//                hubID = resultSet.getString(Db.HUB_ID);
+//                locationX = Integer.parseInt(resultSet.getString(Db.LOCATION_X));
+//                locationY = Integer.parseInt(resultSet.getString(Db.LOCATION_Y));
+//                inService = Boolean.parseBoolean(resultSet.getString(Db.IN_SERVICE));
+//                repairEstimate = Float.parseFloat(resultSet.getString(Db.REPAIR_ESTIMATE));
+//                faultyHubs.add(new HubInfo(hubID, locationX, locationY, inService, repairEstimate));
+//            }
+//
+//            statement.close();
+//            connect.close();
+//            return faultyHubs;
+//
+//        } catch (SQLException e) {
+//            throw  new RuntimeException(e.getMessage());
+//        }
     }
 }

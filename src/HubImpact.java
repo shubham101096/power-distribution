@@ -1,7 +1,9 @@
 public class HubImpact {
 
-    String hubID;
-    float impact;
+    private String hubID;
+    private float impact;
+
+
 
     public HubImpact(String hubID, float impact) {
         this.hubID = hubID;
