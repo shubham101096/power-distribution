@@ -505,33 +505,5 @@ public class PowerService {
         }
 
         return faultyHubsInsideRectangleList;
-
-//        Connection connect = getDbConnection();
-//        try {
-//            Statement statement = connect.createStatement();
-//            ResultSet resultSet = statement.executeQuery(Db.getFaultyHubsWithinRectangleQuery(startHub, endHub, maxTime));
-//            String hubID;
-//            int locationX = 0;
-//            int locationY = 0;
-//            boolean inService = true;
-//            float repairEstimate = 0;
-//            List faultyHubs = new ArrayList<>();
-//
-//            while (resultSet.next()) {
-//                hubID = resultSet.getString(Db.HUB_ID);
-//                locationX = Integer.parseInt(resultSet.getString(Db.LOCATION_X));
-//                locationY = Integer.parseInt(resultSet.getString(Db.LOCATION_Y));
-//                inService = Boolean.parseBoolean(resultSet.getString(Db.IN_SERVICE));
-//                repairEstimate = Float.parseFloat(resultSet.getString(Db.REPAIR_ESTIMATE));
-//                faultyHubs.add(new HubInfo(hubID, locationX, locationY, inService, repairEstimate));
-//            }
-//
-//            statement.close();
-//            connect.close();
-//            return faultyHubs;
-//
-//        } catch (SQLException e) {
-//            throw  new RuntimeException(e.getMessage());
-//        }
     }
 }

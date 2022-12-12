@@ -193,19 +193,6 @@ public class Db {
                 "ABS("+LOCATION_X+"-"+startHubInfo.getLocationX()+") + ABS("+LOCATION_Y+"-"+startHubInfo.getLocationY()+") <= "+maxDist+";";
     }
 
-    public static String getFaultyHubsWithinRectangleQuery(HubInfo startHubInfo, HubInfo endHubInfo, float maxTime) {
-        int minLocationX = Math.min(startHubInfo.getLocationX(), endHubInfo.getLocationX());
-        int minLocationY = Math.min(startHubInfo.getLocationY(), endHubInfo.getLocationY());
-        int maxLocationX = Math.max(startHubInfo.getLocationX(), endHubInfo.getLocationX());
-        int maxLocationY = Math.max(startHubInfo.getLocationY(), endHubInfo.getLocationY());
-
-        return "SELECT * FROM "+DISTRIBUTION_HUBS_TABLE+"\n" +
-                "WHERE "+HUB_ID+"NOT IN ('"+startHubInfo.getHubID()+", '"+endHubInfo.getHubID()+"') AND "+IN_SERVICE+"=FALSE AND\n" +
-                REPAIR_ESTIMATE+"<="+maxTime+" AND\n"+
-                "("+LOCATION_X+" BETWEEN "+minLocationX+" AND "+maxLocationX+")\n" +
-                "AND ("+LOCATION_Y+" BETWEEN "+minLocationY+" AND "+maxLocationY+");";
-    }
-
     public static  String underservedPostalByPopulationQuery(int limit) {
         return "WITH T1 AS " +
                 "(SELECT * "+

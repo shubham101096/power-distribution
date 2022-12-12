@@ -5,18 +5,32 @@ import java.util.Map;
 
 public class RepairPlan {
 
+    enum Value {
+        NEGATIVE,
+        ZERO,
+        POSITIVE;
+
+        static Value getValue(int n) {
+            if (n<0) return NEGATIVE;
+            if (n==0) return ZERO;
+            return POSITIVE;
+        }
+    }
+
     private class Constraints {
         boolean isXMonotonic = true;
         boolean isYMonotonic = true;
-        boolean isXDirPos;
-        boolean isYDirPos;
+        Value xDir;
+        Value yDir;
+        Value pointExistOnDiagonalSide;
         boolean isDiagCrossed;
 
-        Constraints(boolean isXMonotonic, boolean isYMonotonic, boolean isXDirPos, boolean isYDirPos, boolean isDiagCrossed) {
+        Constraints(boolean isXMonotonic, boolean isYMonotonic, Value xDir, Value yDir, Value pointExistOnDiagonalSide, boolean isDiagCrossed) {
             this.isXMonotonic = isXMonotonic;
             this.isYMonotonic = isYMonotonic;
-            this.isXDirPos = isXDirPos;
-            this.isYDirPos = isYDirPos;
+            this.xDir = xDir;
+            this.yDir = yDir;
+            this.pointExistOnDiagonalSide = pointExistOnDiagonalSide;
             this.isDiagCrossed = isDiagCrossed;
         }
     }
@@ -71,9 +85,11 @@ public class RepairPlan {
                 endHubInfo = hubInfo;
             }
         }
-        boolean isXDirPos = (endHubInfo.getLocationX()-startHubInfo.getLocationX()>=0) ? true : false;
-        boolean isYDirPos = (endHubInfo.getLocationY()-startHubInfo.getLocationY()>=0) ? true : false;
-        Constraints constraints = new Constraints(true, true,isXDirPos, isYDirPos, false);
+        int diffX = endHubInfo.getLocationX()-startHubInfo.getLocationX();
+        int diffY = endHubInfo.getLocationY()-startHubInfo.getLocationY();
+        Value xDir = Value.getValue(diffX);
+        Value yDir = Value.getValue(diffY);
+        Constraints constraints = new Constraints(true, true, xDir, yDir, Value.ZERO, false);
         Point startPoint = new Point(startHubInfo.getLocationX(), startHubInfo.getLocationY());
         Point endPoint = new Point(endHubInfo.getLocationX(), endHubInfo.getLocationY());
         Line line = findDiagonalLineConstants(startPoint, endPoint);
@@ -98,7 +114,7 @@ public class RepairPlan {
         curHubImpactSum += hubImpactMap.get(curHubID).getImpact();
         curRepairOrderList.add(hubImpactMap.get(curHubID));
         Point pointV = new Point(faultyHubsList.get(v).getLocationX(), faultyHubsList.get(v).getLocationY());
-        boolean isVLinePositive = isPointLinePositive(line, pointV);
+        Value vValue = getPointValue(line, pointV);
 
         for (int i = 1; i < faultyHubsList.size(); i++) {
 
@@ -110,26 +126,113 @@ public class RepairPlan {
             } else if (isVisited[i]==false) {
 
                 Point pointI = new Point(faultyHubsList.get(i).getLocationX(), faultyHubsList.get(i).getLocationY());
-                boolean isILinePositive = isPointLinePositive(line, pointI);
 
-                boolean isXGreater = (pointI.getX()-pointV.getX())>=0 ? true : false;
-                boolean isYGreater = (pointI.getY()-pointV.getY())>=0 ? true : false;
-                boolean isXMonotonic = isXGreater==constraints.isXDirPos ? true : false;
-                boolean isYMonotonic = isYGreater==constraints.isYDirPos ? true : false;
-                boolean isOnSameSideOfDiag = isVLinePositive==isILinePositive ? true : false;
-                boolean isDiagCrossed = !isOnSameSideOfDiag;
-                if (v==0) {
-                    isDiagCrossed = false;
+                boolean isXMonotonic;
+                boolean isYMonotonic;
+
+                if (constraints.isXMonotonic==false) {
+                    isXMonotonic = false;
+                } else {
+                    Value xCompare = Value.getValue(pointI.getX()-pointV.getX());
+                    if (xCompare.equals(Value.ZERO)) {
+                        isXMonotonic = constraints.isXMonotonic;
+                    } else {
+                        isXMonotonic = xCompare.equals(constraints.xDir);
+                    }
                 }
+
+                if (constraints.isYMonotonic==false) {
+                    isYMonotonic = false;
+                } else {
+                    Value yCompare = Value.getValue(pointI.getY()-pointV.getY());
+                    if (yCompare.equals(Value.ZERO)) {
+                        isYMonotonic = constraints.isYMonotonic;
+                    } else {
+                        isYMonotonic = yCompare.equals(constraints.yDir);
+                    }
+                }
+
+//                boolean isOnSameSideOfDiag = isVLinePositive==isILinePositive ? true : false;
+//                boolean isDiagCrossed = !isOnSameSideOfDiag;
+//                if (v==0) {
+//                    isDiagCrossed = false;
+//                }
 
                 if (isXMonotonic==false && isYMonotonic==false) {
                     continue;
                 }
-                if (constraints.isDiagCrossed==true && isOnSameSideOfDiag==false) {
+//                if (constraints.isDiagCrossed==true && isOnSameSideOfDiag==false) {
+//                    continue;
+//                }
+
+                Value iValue = getPointValue(line, pointI);
+                boolean willPathCrossDiagNow = false;
+//
+//                //diagonal already crossed
+//                if (constraints.isDiagCrossed) {
+//                    willPathCrossDiagNow = true;
+//                } else {
+//
+//                    if (iValue.equals(Value.ZERO)) {
+//                        willPathCrossDiagNow = false;
+//                    }
+//
+//                    //diagonal not crossed yet
+//                    if (vValue.equals(Value.ZERO)) {
+//                        if (constraints.pointExistOnDiagonalSide.equals(iValue) == false) {
+//                            willPathCrossDiagNow = true;
+//                        }
+//                    } else {
+//                        if (vValue.equals(iValue)) {
+//                            willPathCrossDiagNow = false;
+//                        }
+//                    }
+//                }
+
+                //is diagonal crossing now
+
+                if (iValue.equals(vValue)==false) {
+                    if (vValue.equals(Value.ZERO)) {
+                        if (constraints.pointExistOnDiagonalSide.equals(Value.ZERO)==false && constraints.pointExistOnDiagonalSide.equals(iValue) == false) {
+                                willPathCrossDiagNow = true;
+                        }
+                    } else {
+                        willPathCrossDiagNow = true;
+                    }
+                }
+
+                if (constraints.isDiagCrossed && willPathCrossDiagNow) {
                     continue;
                 }
 
-                Constraints newConstraints = new Constraints(isXMonotonic, isYMonotonic, constraints.isXDirPos, constraints.isYDirPos, isDiagCrossed);
+                boolean isDiagCrossed = willPathCrossDiagNow || constraints.isDiagCrossed;
+
+                Value pointExistOnDiagonalSide;
+
+                if (constraints.pointExistOnDiagonalSide.equals(Value.ZERO)) {
+                    pointExistOnDiagonalSide = iValue;
+                } else {
+                    pointExistOnDiagonalSide = constraints.pointExistOnDiagonalSide;
+                }
+//
+//                if (constraints.isDiagCrossed) {
+//                    willPathCrossDiagNow = true;
+//                } else if (iValue.equals(Value.ZERO)) {
+//                    willPathCrossDiagNow = false;
+//                } else if (vValue.equals(Value.ZERO)==false && constraints.pointExistOnDiagonalSide.equals(iValue)==false) {
+//                    continue;
+//                } else if () {
+//
+//                }
+
+//
+//                boolean willCrossDiagonal;
+//                if (constraints.pointExistOnDiagonalSide)
+//                boolean isOnSameSideOfDiag;
+//                if (vValue==Value.ZERO || )
+//                if (constraints.isDiagCrossed &&
+
+                Constraints newConstraints = new Constraints(isXMonotonic, isYMonotonic, constraints.xDir, constraints.yDir, pointExistOnDiagonalSide, isDiagCrossed);
                 dfs(i, isVisited, curHubImpactSum, maxResult, curRepairOrderList, newConstraints, line);
 
             }
@@ -146,11 +249,8 @@ public class RepairPlan {
         return line;
     }
 
-    private boolean isPointLinePositive(Line line, Point p) {
+    private Value getPointValue(Line line, Point p) {
         int res = line.a* p.getX() + line.b* p.getY() - line.c;
-        if (res>=0) {
-            return true;
-        }
-        return false;
+        return Value.getValue(res);
     }
 }
