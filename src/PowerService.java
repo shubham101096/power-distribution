@@ -278,8 +278,8 @@ public class PowerService {
             }
         }
 
-        RepairPlan repairPlan = new RepairPlan(startHubId, endHubId, faultyHubsInsideRectangleList, hubImpactMap);
-        return repairPlan.getRepairOrder();
+        RepairPlan repairPlan = new RepairPlan();
+        return repairPlan.getRepairPath(startHubId, endHubId, faultyHubsInsideRectangleList, hubImpactMap);
     }
 
     public List<String> underservedPostalByPopulation ( int limit ) {
