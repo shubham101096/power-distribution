@@ -124,9 +124,9 @@ public class Db {
     }
 
     public static  String setHubInServiceQuery(String hubID) {
-        return "UPDATE +"+DISTRIBUTION_HUBS_TABLE+"\n" +
-                "\tSET +"+IN_SERVICE+"=TRUE, "+REPAIR_ESTIMATE+"=0\n" +
-                "    WHERE HUB_ID=\"h1\";";
+        return "UPDATE "+DISTRIBUTION_HUBS_TABLE+"\n" +
+                "\tSET "+IN_SERVICE+"=TRUE, "+REPAIR_ESTIMATE+"=0\n" +
+                "    WHERE "+HUB_ID+"=\""+hubID+"\";";
     }
 
     public static  String peopleOutOfServiceQuery() {
