@@ -1,12 +1,20 @@
+/**
+ * HubInfo class contains information related to a distribution hub
+ */
+
 public class HubInfo {
+
+    // internal attributes of the class
     private String hubID;
     private int locationX;
     private int locationY;
     private boolean inService;
     private float repairEstimate;
 
+    // constructor with no parameters
     public HubInfo() {}
 
+    // constructor with parameters
     public HubInfo(String hubID, int locationX, int locationY, boolean inService, float repairEstimate) {
         this.hubID = hubID;
         this.locationX = locationX;
@@ -15,6 +23,7 @@ public class HubInfo {
         this.repairEstimate = repairEstimate;
     }
 
+    // copy constructor
     public HubInfo(HubInfo hubInfo) {
         this.hubID = hubInfo.hubID;
         this.locationX = hubInfo.locationX;
@@ -23,6 +32,7 @@ public class HubInfo {
         this.repairEstimate = hubInfo.repairEstimate;
     }
 
+    // getters and setters
     public String getHubID() {
         return hubID;
     }
