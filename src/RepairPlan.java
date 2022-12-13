@@ -35,25 +35,24 @@ public class RepairPlan {
         Value yDir; // difference b/w end hub and start hub y-coordinate to represent y-direction in which we need to move to reach end hub
 
         /*
-         pointExistOnOneSideOfDiagonal helps in finding will diagonal be crossed now if
+         sideOfPreviousNonDiagonalPoint helps in finding will diagonal be crossed now if
          current point is traversed.
-         positive/negative value represents that at least one
-         point has been traversed on one of the side of the diagonal.
-         0 value means either no points on the 2 sides of rectangle have been traversed or only the points
-         that lie on diagonal have been traversed.
+         positive/negative value represents that on which side of the diagonal
+         the closest previous non-diagonal(point which did not lie on the diagonal) point was traversed
+         0 value means only the points that lie on diagonal have been traversed till now.
          */
-        Value pointExistOnOneSideOfDiagonal;
+        Value sideOfPreviousNonDiagonalPoint;
 
         boolean isDiagCrossed; // has diagonal been crossed in path traversed till now
 
         // constructor for constraints
-        Constraints(float maxTime, boolean isXMonotonic, boolean isYMonotonic, Value xDir, Value yDir, Value pointExistOnOneSideOfDiagonal, boolean isDiagCrossed) {
+        Constraints(float maxTime, boolean isXMonotonic, boolean isYMonotonic, Value xDir, Value yDir, Value sideOfPreviousNonDiagonalPoint, boolean isDiagCrossed) {
             this.maxTime = maxTime;
             this.isXMonotonic = isXMonotonic;
             this.isYMonotonic = isYMonotonic;
             this.xDir = xDir;
             this.yDir = yDir;
-            this.pointExistOnOneSideOfDiagonal = pointExistOnOneSideOfDiagonal;
+            this.sideOfPreviousNonDiagonalPoint = sideOfPreviousNonDiagonalPoint;
             this.isDiagCrossed = isDiagCrossed;
         }
     }
@@ -133,7 +132,7 @@ public class RepairPlan {
          maxTime will be equal to maxTime and will never change
          isXMonotonic and isYMonotonic will be true
          xDir and yDir will never change
-         pointExistOnOneSideOfDiagonal will be 0 as start hub lies on diagonal
+         sideOfPreviousNonDiagonalPoint will be 0 as start hub lies on diagonal
          isDiagCrossed will be false
           */
         Constraints constraints = new Constraints(maxTime, true, true, xDir, yDir, Value.ZERO, false);
@@ -174,8 +173,8 @@ public class RepairPlan {
         curHubImpactSum += hubImpactMap.get(curHubID).getImpact();
         curRepairOrderList.add(hubImpactMap.get(curHubID));
         Point pointV = new Point(faultyHubsList.get(v).getLocationX(), faultyHubsList.get(v).getLocationY());
-        // determine on which side of diagonal v exists
-        Value vValue = getPointValue(diagonal, pointV);
+        // determine on which side of diagonal hub v exists
+        Value vSide = getPointSideOnLine(diagonal, pointV);
 
         // traverse other hubs in list
         for (int i = 1; i < faultyHubsList.size(); i++) {
@@ -196,59 +195,61 @@ public class RepairPlan {
 
                 Point pointI = new Point(faultyHubsList.get(i).getLocationX(), faultyHubsList.get(i).getLocationY());
 
-                boolean isXMonotonic;
-                boolean isYMonotonic;
+                boolean isXMonotonicNow;
+                boolean isYMonotonicNow;
 
                 //check for xMonotonic
                 if (constraints.isXMonotonic==false) {
                     // path is already not xMonotonic
-                    isXMonotonic = false;
+                    isXMonotonicNow = false;
                 } else {
-                    // path is xMonotonic till now
+                    // path is xMonotonic till before traversing i
 
                     Value xCompare = Value.getValue(pointI.getX()-pointV.getX());
                     if (xCompare.equals(Value.ZERO)) {
                         // hubs v and i have same x, so xMonotonic property remains as before
-                        isXMonotonic = constraints.isXMonotonic;
+                        isXMonotonicNow = constraints.isXMonotonic;
                     } else {
                         // xMonotonic depends on if path from v to i is in xDir or not
-                        isXMonotonic = xCompare.equals(constraints.xDir);
+                        isXMonotonicNow = xCompare.equals(constraints.xDir);
                     }
                 }
 
                 //check for yMonotonic
                 if (constraints.isYMonotonic==false) {
                     // path is already not yMonotonic
-                    isYMonotonic = false;
+                    isYMonotonicNow = false;
                 } else {
-                    // path is yMonotonic till now
+                    // path is yMonotonic till before traversing i
                     Value yCompare = Value.getValue(pointI.getY()-pointV.getY());
                     if (yCompare.equals(Value.ZERO)) {
                         // hubs v and i have same y, so yMonotonic property remains as before
-                        isYMonotonic = constraints.isYMonotonic;
+                        isYMonotonicNow = constraints.isYMonotonic;
                     } else {
                         // xMonotonic depends on if path from v to i is in xDir or not
-                        isYMonotonic = yCompare.equals(constraints.yDir);
+                        isYMonotonicNow = yCompare.equals(constraints.yDir);
                     }
                 }
 
                 // ignore hub i if both property fail
-                if (isXMonotonic==false && isYMonotonic==false) {
+                if (isXMonotonicNow==false && isYMonotonicNow==false) {
                     continue;
                 }
 
-                // check for diagonal constraint
-                Value iValue = getPointValue(diagonal, pointI);
+                // determine on which side of diagonal hub i exists
+                Value iSide = getPointSideOnLine(diagonal, pointI);
                 boolean willPathCrossDiagNow = false;
-                //is diagonal crossing now
 
-                if (iValue.equals(vValue)==false) {
-                    // hub i and v have different values
+                // check for diagonal constraint
+                //is diagonal crossing now?
+
+                if (iSide.equals(Value.ZERO)==false && iSide.equals(vSide)==false) {
+                    // hub i does not lie on diagonal and hubs i and v have different values
                     // so, diagonal may get crossed
-                    if (vValue.equals(Value.ZERO)) {
+                    if (vSide.equals(Value.ZERO)) {
                         // hub v lies on diagonal
-                        // so diagonal will be crossed only if there was a prior hub that was on opposite side to hub i
-                        if (constraints.pointExistOnOneSideOfDiagonal.equals(Value.ZERO)==false && constraints.pointExistOnOneSideOfDiagonal.equals(iValue) == false) {
+                        // so diagonal will be crossed only if the immediate previous non-diagonal hub traversed was on opposite side to hub i
+                        if (constraints.sideOfPreviousNonDiagonalPoint.equals(Value.ZERO)==false && constraints.sideOfPreviousNonDiagonalPoint.equals(iSide) == false) {
                                 willPathCrossDiagNow = true;
                         }
                     } else {
@@ -262,25 +263,20 @@ public class RepairPlan {
                     continue;
                 }
 
-                boolean isDiagCrossed = willPathCrossDiagNow || constraints.isDiagCrossed;
+                boolean isDiagCrossedNow = willPathCrossDiagNow || constraints.isDiagCrossed;
 
-                Value pointExistOnOneSideOfDiagonal;
+                Value sideOfPreviousNonDiagonalPointNow;
 
-                // difficult to explain in writing, phew...
-                // determine value of pointExistOnOneSideOfDiagonal
-                // to check if diagonal gets crossed in future
-                if (constraints.pointExistOnOneSideOfDiagonal.equals(Value.ZERO)) {
-                    // all previous hubs in the path lied on the diagonal
-                    // so update value to the iValue
-                    pointExistOnOneSideOfDiagonal = iValue;
+                if (iSide.equals(Value.ZERO)) {
+                    // if hub i lies on diagonal, keep value as before
+                    sideOfPreviousNonDiagonalPointNow = constraints.sideOfPreviousNonDiagonalPoint;
                 } else {
-                    // at least 1 previous hub lied on one of the sides of the triangle
-                    // so keep the old value as it is
-                    pointExistOnOneSideOfDiagonal = constraints.pointExistOnOneSideOfDiagonal;
+                    // update to side of hub i
+                    sideOfPreviousNonDiagonalPointNow = iSide;
                 }
 
                 // setup new constraints before recursive call to the hub i
-                Constraints newConstraints = new Constraints(constraints.maxTime, isXMonotonic, isYMonotonic, constraints.xDir, constraints.yDir, pointExistOnOneSideOfDiagonal, isDiagCrossed);
+                Constraints newConstraints = new Constraints(constraints.maxTime, isXMonotonicNow, isYMonotonicNow, constraints.xDir, constraints.yDir, sideOfPreviousNonDiagonalPointNow, isDiagCrossedNow);
                 dfs(i, isVisited, curHubImpactSum, curTime+faultyHubsList.get(i).getRepairEstimate(), maxResult, curRepairOrderList, newConstraints, diagonal);
 
             }
@@ -296,7 +292,7 @@ public class RepairPlan {
      * @param p
      * @return Value (NEGATIVE, ZERO, POSITIVE)
      */
-    private Value getPointValue(Line line, Point p) {
+    private Value getPointSideOnLine(Line line, Point p) {
         int res = line.a* p.getX() + line.b* p.getY() - line.c;
         return Value.getValue(res);
     }
