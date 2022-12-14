@@ -155,6 +155,14 @@ public class Db {
     }
 
     /**
+     * Query to fetch all info from employees table
+     * @return
+     */
+    public static  String getEmployeesQuery() {
+        return "SELECT * from "+EMPLOYEES_TABLE+";";
+    }
+
+    /**
      * Query to delete entries from postal codes and distribution hubs junction table having HUB_ID=hubID
      * @return
      */

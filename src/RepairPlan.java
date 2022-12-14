@@ -149,7 +149,6 @@ public class RepairPlan {
         List<HubImpact> repairOrderList = new ArrayList<>();
         repairOrderList.addAll(result.maxImpactHubs);
         repairOrderList.add(hubImpactMap.get(endHubID));
-        System.out.println(result.maxHubImpactSum);
         return repairOrderList;
     }
 
@@ -276,6 +275,7 @@ public class RepairPlan {
                 }
 
                 // setup new constraints before recursive call to the hub i
+                // constraints maxTime, xDir, yDir always remain same as set in the beginning
                 Constraints newConstraints = new Constraints(constraints.maxTime, isXMonotonicNow, isYMonotonicNow, constraints.xDir, constraints.yDir, sideOfPreviousNonDiagonalPointNow, isDiagCrossedNow);
                 dfs(i, isVisited, curHubImpactSum, curTime+faultyHubsList.get(i).getRepairEstimate(), maxResult, curRepairOrderList, newConstraints, diagonal);
 

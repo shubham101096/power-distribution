@@ -169,7 +169,7 @@ public class PowerService {
         if (repairTime<=0) {
             throw new IllegalArgumentException();
         }
-        if (doesHubExistInDb(hubIdentifier)==false) {
+        if (doesHubExistInDb(hubIdentifier)==false || doesEmployeeExistInDb(employeeId)==false) {
             throw new IllegalArgumentException();
         }
 
@@ -410,6 +410,14 @@ public class PowerService {
             }
         }
 
+        if (faultyHubsWithinMaxDistList.size()==0) {
+            // no hubs found within max distance from start hub
+            // just return start hub
+            List<HubImpact> list = new ArrayList<>();
+            list.add(new HubImpact(startHubId, hubImpactMap.get(startHubId).getImpact()));
+            return list;
+        }
+
         // pass all info needed for finding repair path to the repairPlan.getRepairPath method
         RepairPlan repairPlan = new RepairPlan();
         return repairPlan.getRepairPath(startHubId, endHubId, faultyHubsInsideRectangleList, hubImpactMap, maxTime);
@@ -595,6 +603,31 @@ public class PowerService {
             statement.close();
             connect.close();
             if (curHubs.contains(hubID)==false) {
+                return false;
+            }
+            return true;
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    /**
+     * Check if employee exists in db
+     * @param employeeID
+     * @return
+     */
+    private boolean doesEmployeeExistInDb(String employeeID) {
+        Connection connect = getDbConnection();
+        try {
+            Statement statement = connect.createStatement();
+            ResultSet resultSet = statement.executeQuery(Db.getEmployeesQuery());
+            Set curEmployees = new HashSet<>();
+            while (resultSet.next()) {
+                curEmployees.add(resultSet.getString(Db.EMPLOYEE_ID));
+            }
+            statement.close();
+            connect.close();
+            if (curEmployees.contains(employeeID)==false) {
                 return false;
             }
             return true;
